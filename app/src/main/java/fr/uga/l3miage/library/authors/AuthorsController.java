@@ -4,11 +4,13 @@ import fr.uga.l3miage.data.domain.Author;
 import fr.uga.l3miage.library.books.BookDTO;
 import fr.uga.l3miage.library.books.BooksMapper;
 import fr.uga.l3miage.library.service.AuthorService;
+import fr.uga.l3miage.library.service.DeleteAuthorException;
+import fr.uga.l3miage.library.service.EntityNotFoundException;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -40,22 +42,48 @@ public class AuthorsController {
                 .map(authorMapper::entityToDTO)
                 .toList();
     }
+    @ResponseStatus(HttpStatus.OK)
+    @GetMapping("/authors/{id}")
+    public AuthorDTO author(@PathVariable("id")  Long id)  {
+        Author auteur = null;
+        try {
+            auteur = this.authorService.get(id);
+        } catch (EntityNotFoundException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
 
-    public AuthorDTO author(Long id) {
-        return null;
+
+        return authorMapper.entityToDTO(auteur);
     }
 
-    public AuthorDTO newAuthor(AuthorDTO author) {
-        return null;
+    @PostMapping("/authors")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthorDTO newAuthor(@RequestBody @Valid AuthorDTO author) {
+
+        Author auteur = authorMapper.dtoToEntity(author);
+        auteur = this.authorService.save(auteur);
+        return authorMapper.entityToDTO(auteur);
+
     }
 
-    public AuthorDTO updateAuthor(AuthorDTO author, Long id) {
-        // attention AuthorDTO.id() doit être égale à id, sinon la requête utilisateur est mauvaise
-        return null;
+    @PutMapping("/authors/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public AuthorDTO updateAuthor(@RequestBody @Valid AuthorDTO  author, @PathVariable("id") Long id) throws EntityNotFoundException {
+        if(id!= author.id()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        }
+        // Ce return pourrait être fait en plusieurs étapes, mais ici, on fait en une seule ligne les 2 "conversions" et l'update
+        return authorMapper.entityToDTO(authorService.update(authorMapper.dtoToEntity(author)));
     }
 
-    public void deleteAuthor(Long id) {
-        // unimplemented... yet!
+    @DeleteMapping("/authors/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAuthor(@PathVariable("id") Long id) throws EntityNotFoundException, DeleteAuthorException {
+        var auteur = this.authorService.get(id);
+        if(auteur==null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+        this.authorService.delete(id);
     }
 
     public Collection<BookDTO> books(Long authorId) {
